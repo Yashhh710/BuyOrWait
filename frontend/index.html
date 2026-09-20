@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />  
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Buy or Wait? — AI Financial Decision Assistant</title>
+<link rel="icon" type="image/x-icon" href="https://img.icons8.com/?size=100&id=undefined&format=png&color=000000" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ==========================================================
+   BUY OR WAIT? — single-file app
+   Palette: near-black bg, white type, soft gray cards, one blue accent.
+========================================================== */
+:root{
+  --bg:#08090c;
+  --bg-elevated:#0f1115;
+  --card:rgba(255,255,255,0.055);
+  --card-soft:rgba(255,255,255,0.08);
+  --border:rgba(255,255,255,0.08);
+  --border-strong:rgba(255,255,255,0.16);
+  --text:#f5f6f8;
+  --text-dim:#a7abb8;
+  --text-mute:#6a6f7d;
+  --accent:#4c8dff;
+  --accent-soft:rgba(76,141,255,0.14);
+  --accent-strong:#7aabff;
+  --success:#3ecf8e;
+  --success-soft:rgba(62,207,142,0.14);
+  --warning:#e8b04b;
+  --warning-soft:rgba(232,176,75,0.14);
+  --danger:#e8615f;
+  --danger-soft:rgba(232,97,95,0.14);
+  --r-sm:10px; --r-md:16px; --r-lg:26px;
+  --font-display:"Fraunces",Georgia,serif;
+  --font-body:"Inter",-apple-system,BlinkMacSystemFont,sans-serif;
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+html{scrollbar-width:none;-ms-overflow-style:none;}
+body{
+  margin:0;color:var(--text);
+  font-family:var(--font-body);line-height:1.5;-webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+  scrollbar-width:none;-ms-overflow-style:none;
+  background-color:var(--bg);
+  background-image:linear-gradient(rgba(8,9,12,0.55),rgba(8,9,12,0.72)), url('models/bg.png');
+  background-size:cover;
+  background-position:center;
+  background-repeat:no-repeat;
+  background-attachment:fixed;
+}
+html::-webkit-scrollbar, body::-webkit-scrollbar{display:none;width:0;height:0;}
+a{color:inherit;}
+::selection{background:var(--accent-soft);}
+:focus-visible{outline:2px solid var(--accent-strong);outline-offset:2px;}
+button{font-family:inherit;cursor:pointer;}
+input,select{font-family:inherit;}
+
+/* ---------- top bar (history button) ---------- */
+.topbar{
+  position:fixed;top:0;left:0;right:0;z-index:60;
+  display:flex;justify-content:flex-end;padding:22px 5vw;
+  pointer-events:none;
+}
+.topbar > *{pointer-events:auto;}
+.history-btn{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(21,24,33,0.65);backdrop-filter:blur(10px);
+  border:1px solid var(--border-strong);color:var(--text-dim);
+  padding:10px 18px;border-radius:999px;font-size:0.86rem;font-weight:600;
+  transition:border-color .2s var(--ease), color .2s var(--ease), transform .2s var(--ease);
+}
+.history-btn:hover{border-color:var(--accent);color:var(--text);transform:translateY(-1px);}
+.history-btn svg{width:15px;height:15px;}
+
+.back-btn{
+  position:fixed;top:22px;left:5vw;z-index:60;
+  display:flex;align-items:center;gap:6px;
+  background:transparent;border:none;color:var(--text-mute);
+  font-size:0.86rem;font-weight:600;padding:10px 4px;
+  transition:color .2s var(--ease);
+}
+.back-btn:hover{color:var(--text);}
+.back-btn[hidden]{display:none;}
+
+/* ---------- app shell / screens ---------- */
+#app{position:relative;min-height:100vh;width:100%;}
+.screen{
+  position:absolute;inset:0;min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:100px 6vw 60px;
+  opacity:0;transform:translateY(18px) scale(0.99);
+  pointer-events:none;
+  transition:opacity .5s var(--ease), transform .5s var(--ease);
+}
+.screen.is-active{
+  position:relative;
+  opacity:1;transform:translateY(0) scale(1);
+  pointer-events:auto;
+}
+.screen.is-leaving{
+  position:absolute;
+  opacity:0;transform:translateY(-14px) scale(0.99);
+}
+
+/* ---------- progress ---------- */
+.progress{
+  display:flex;align-items:center;gap:10px;margin-bottom:44px;
+  color:var(--text-mute);font-size:0.82rem;font-weight:600;letter-spacing:0.02em;
+}
+.progress__track{width:120px;height:3px;border-radius:999px;background:var(--border);overflow:hidden;}
+.progress__fill{height:100%;background:var(--accent);border-radius:999px;transition:width .5s var(--ease);}
+
+/* ---------- shared step layout ---------- */
+.step{max-width:560px;width:100%;text-align:center;}
+.step h1{
+  font-family:var(--font-display);font-weight:600;
+  font-size:clamp(1.7rem,3.6vw,2.5rem);letter-spacing:-0.01em;margin:0 0 14px;
+}
+.step p.step__lead{color:var(--text-dim);font-size:1.05rem;margin:0 0 40px;}
+
+.field-group{display:flex;flex-direction:column;gap:18px;text-align:left;margin-bottom:36px;}
+.field{display:flex;flex-direction:column;gap:8px;}
+.field__label{font-size:0.9rem;font-weight:600;color:var(--text);}
+.field__desc{font-size:0.82rem;color:var(--text-mute);margin-top:-2px;}
+.field input, .field select{
+  background:var(--card);border:1px solid var(--border-strong);
+  border-radius:var(--r-sm);padding:14px 16px;color:var(--text);
+  font-size:1rem;transition:border-color .2s var(--ease), box-shadow .2s var(--ease);
+  width:100%;
+}
+.field input:focus, .field select:focus{
+  border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);outline:none;
+}
+.field-error{color:var(--danger);font-size:0.82rem;min-height:1.2em;}
+.field-error.is-loading{color:var(--accent-strong);}
+.field-error.is-ok{color:var(--success);}
+.link-confirmation{display:grid;gap:7px;margin-bottom:22px;padding:16px 18px;border:1px solid var(--border-strong);border-radius:var(--r-md);background:var(--accent-soft);}
+.link-confirmation strong{font-family:var(--font-display);font-size:1.15rem;color:var(--text);line-height:1.35;}
+
+.price-row{display:flex;gap:10px;align-items:stretch;}
+.price-row select{max-width:110px;flex:none;}
+.price-row input{font-family:var(--font-display);font-size:1.9rem;font-weight:600;text-align:left;padding:16px 18px;}
+
+.step__actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+
+.btn{
+  font-size:0.98rem;font-weight:600;padding:15px 30px;border-radius:999px;
+  border:1px solid transparent;transition:transform .18s var(--ease), background .18s var(--ease), border-color .18s var(--ease), color .18s var(--ease);
+  display:inline-flex;align-items:center;gap:10px;
+}
+.btn--primary{background:var(--accent);color:#fff;}
+.btn--primary:hover{background:var(--accent-strong);transform:translateY(-2px);}
+.btn--primary:disabled{opacity:.55;transform:none;cursor:not-allowed;}
+.btn--ghost{background:transparent;color:var(--text-dim);border-color:var(--border-strong);}
+.btn--ghost:hover{color:var(--text);border-color:var(--accent);}
+
+/* ---------- LANDING ---------- */
+#screen-landing{padding:0 6vw;height:100vh;min-height:100vh;max-height:100vh;overflow:hidden;}
+.landing__title{
+  font-family:var(--font-display);font-weight:700;
+  font-size:clamp(3rem,10vw,6.2rem);letter-spacing:-0.03em;margin:0 0 22px;
+  animation:rise .9s var(--ease) both;
+}
+.landing__sub{
+  color:var(--text-dim);font-size:1.15rem;max-width:460px;margin:0 0 48px;
+  animation:rise .9s .1s var(--ease) both;
+}
+.landing__cta{animation:rise .9s .2s var(--ease) both;}
+@keyframes rise{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+
+/* ---------- toggle group (radio pills) ---------- */
+.pill-group{display:inline-flex;border:1px solid var(--border-strong);border-radius:999px;overflow:hidden;}
+.pill-group input{display:none;}
+.pill-group label{padding:10px 20px;font-size:0.88rem;color:var(--text-dim);transition:background .18s, color .18s;}
+.pill-group input:checked + label{background:var(--accent);color:#fff;}
+
+/* ---------- LOADING screen ---------- */
+#screen-loading .loader{
+  width:88px;height:88px;position:relative;margin-bottom:44px;
+}
+.loader__ring{
+  position:absolute;inset:0;border-radius:50%;
+  border:2px solid var(--border);
+}
+.loader__ring::before{
+  content:"";position:absolute;inset:-2px;border-radius:50%;
+  border:2px solid transparent;border-top-color:var(--accent);border-right-color:var(--accent-strong);
+  animation:spin 1.1s linear infinite;
+}
+.loader__core{
+  position:absolute;inset:26px;border-radius:50%;background:var(--accent-soft);
+  animation:pulse 1.6s ease-in-out infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes pulse{0%,100%{transform:scale(0.85);opacity:.6;}50%{transform:scale(1);opacity:1;}}
+.loading__text{
+  font-family:var(--font-display);font-size:1.3rem;color:var(--text);min-height:1.6em;
+  transition:opacity .4s var(--ease);
+}
+.loading__bar{width:220px;height:3px;background:var(--border);border-radius:999px;overflow:hidden;margin-top:26px;}
+.loading__bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-strong));width:0%;transition:width .6s var(--ease);}
+
+/* ---------- DECISION screen ---------- */
+.decision__eyebrow{color:var(--text-mute);font-size:0.85rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:18px;}
+.decision__word{
+  font-family:var(--font-display);font-weight:700;letter-spacing:-0.02em;
+  font-size:clamp(2.6rem,8vw,5.4rem);margin:0 0 20px;
+  animation:decision-in .7s var(--ease) both;
+}
+@keyframes decision-in{from{opacity:0;transform:scale(0.92);}to{opacity:1;transform:scale(1);}}
+.decision__img{
+  width:150px;height:150px;object-fit:contain;
+  margin:0 auto 18px;display:block;
+  animation:rise .6s var(--ease) both;
+}
+.decision-gallery{position:fixed;left:50%;bottom:18px;z-index:0;display:flex;align-items:flex-end;justify-content:center;gap:clamp(18px,5vw,70px);width:min(680px,92vw);transform:translateX(-50%);pointer-events:none;opacity:.18;filter:saturate(.75);}
+.decision-gallery img{width:clamp(74px,11vw,118px);height:clamp(74px,11vw,118px);object-fit:contain;}
+.decision-gallery img:nth-child(2){transform:translateY(-9px) scale(1.08);}
+.decision-gallery img:nth-child(1){transform:rotate(-7deg);}
+.decision-gallery img:nth-child(3){transform:rotate(7deg);}
+#screen-decision > .step,#screen-decision > #analytics{position:relative;z-index:1;}
+.decision__word.tone-success{color:var(--success);}
+.decision__word.tone-warning{color:var(--warning);}
+.decision__word.tone-danger{color:var(--danger);}
+.decision__reason{color:var(--text-dim);font-size:1.05rem;max-width:520px;margin:0 auto 34px;}
+
+.decision__stats{
+  display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:36px;
+}
+.decision__stat{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:16px 22px;min-width:150px;
+}
+.decision__stat-label{font-size:0.76rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:0.04em;}
+.decision__stat-value{font-family:var(--font-display);font-size:1.3rem;font-weight:600;margin-top:4px;}
+
+.demo-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--warning-soft);color:var(--warning);
+  padding:6px 14px;border-radius:999px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;
+  margin-bottom:22px;
+}
+.ai-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--accent-soft);color:var(--accent-strong);
+  padding:6px 14px;border-radius:999px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;
+  margin-bottom:22px;
+}
+
+/* ---------- ANALYTICS (scroll section, revealed) ---------- */
+#analytics{
+  width:100%;max-width:1080px;margin:70px auto 0;
+  opacity:0;transform:translateY(24px);transition:opacity .6s var(--ease), transform .6s var(--ease);
+}
+#analytics.is-visible{opacity:1;transform:translateY(0);}
+.section-head{text-align:left;max-width:640px;margin-bottom:34px;}
+.section-head h2{font-family:var(--font-display);font-weight:600;font-size:clamp(1.5rem,2.2vw,1.9rem);margin:0 0 8px;}
+.section-head p{color:var(--text-dim);margin:0;font-size:0.98rem;}
+
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px;}
+.stat-card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:20px;display:flex;flex-direction:column;gap:6px;text-align:left;
+}
+.stat-card--wide{grid-column:span 4;}
+.stat-card__label{color:var(--text-mute);font-size:0.78rem;text-transform:uppercase;letter-spacing:0.03em;}
+.stat-card__value{font-family:var(--font-display);font-size:1.5rem;font-weight:600;}
+.stat-card__hint{color:var(--text-dim);font-size:0.8rem;}
+
+.bar{height:9px;border-radius:999px;background:var(--border);overflow:hidden;margin:6px 0 2px;}
+.bar__fill{height:100%;width:0%;background:linear-gradient(90deg,var(--success),var(--accent));transition:width 1s var(--ease);}
+
+.grid-2{display:grid;grid-template-columns:280px 1fr;gap:14px;margin-bottom:44px;text-align:left;}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:22px;}
+.health-badge{
+  display:inline-block;padding:8px 18px;border-radius:999px;font-family:var(--font-display);
+  font-weight:600;font-size:1.1rem;margin:10px 0 12px;
+}
+.health-badge.tone-success{background:var(--success-soft);color:var(--success);}
+.health-badge.tone-warning{background:var(--warning-soft);color:var(--warning);}
+.health-badge.tone-danger{background:var(--danger-soft);color:var(--danger);}
+.panel p{color:var(--text-dim);font-size:0.9rem;margin:0;}
+
+.chart-legend{display:flex;gap:16px;margin-top:10px;color:var(--text-dim);font-size:0.8rem;flex-wrap:wrap;}
+.chart-legend .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;}
+.dot--income{background:var(--success);} .dot--expense{background:var(--danger);} .dot--commit{background:var(--warning);}
+
+.ai-block-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:44px;text-align:left;}
+.ai-block{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:22px;}
+.ai-block h3{font-size:0.85rem;color:var(--text-mute);margin:0 0 10px;text-transform:uppercase;letter-spacing:0.03em;}
+.ai-block p{color:var(--text-dim);margin:0;font-size:0.94rem;line-height:1.55;}
+
+.timeline{display:flex;flex-direction:column;gap:0;text-align:left;margin-bottom:60px;}
+.timeline__item{
+  position:relative;padding:0 0 30px 34px;border-left:2px solid var(--border);
+}
+.timeline__item:last-child{border-left-color:transparent;padding-bottom:0;}
+.timeline__item::before{
+  content:"";position:absolute;left:-7px;top:2px;width:12px;height:12px;border-radius:50%;
+  background:var(--accent);border:3px solid var(--bg);
+}
+.timeline__item.is-final::before{background:var(--success);}
+.timeline__label{font-size:0.78rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:0.03em;font-weight:700;}
+.timeline__text{font-size:0.98rem;color:var(--text);margin-top:4px;}
+
+/* ---------- HISTORY screen ---------- */
+.history-toolbar{
+  display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;
+  width:100%;max-width:1080px;margin-bottom:24px;
+}
+.history-search{
+  flex:1;min-width:200px;background:var(--card);border:1px solid var(--border-strong);
+  border-radius:var(--r-sm);padding:12px 16px;color:var(--text);font-size:0.94rem;
+}
+.history-controls{display:flex;gap:10px;flex-wrap:wrap;}
+.history-controls select{
+  background:var(--card);border:1px solid var(--border-strong);border-radius:var(--r-sm);
+  padding:11px 14px;color:var(--text);font-size:0.86rem;
+}
+.history-list{width:100%;max-width:1080px;display:flex;flex-direction:column;gap:10px;}
+.history-row{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:16px 20px;display:grid;grid-template-columns:1.6fr 1fr 1fr 0.8fr 1fr;gap:12px;align-items:center;
+  text-align:left;cursor:pointer;transition:border-color .18s var(--ease), transform .18s var(--ease);
+}
+.history-row:hover{border-color:var(--accent);transform:translateY(-1px);}
+.history-row__product{font-weight:600;}
+.history-row__sub{font-size:0.78rem;color:var(--text-mute);}
+.tag{padding:4px 12px;border-radius:999px;font-size:0.78rem;font-weight:700;width:fit-content;}
+.tag.tone-success{background:var(--success-soft);color:var(--success);}
+.tag.tone-warning{background:var(--warning-soft);color:var(--warning);}
+.tag.tone-danger{background:var(--danger-soft);color:var(--danger);}
+.history-empty{color:var(--text-mute);padding:50px 0;text-align:center;width:100%;}
+
+/* ---------- modal ---------- */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(4,5,8,0.72);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;z-index:200;
+  opacity:0;pointer-events:none;transition:opacity .25s var(--ease);padding:24px;
+}
+.modal-overlay.is-open{opacity:1;pointer-events:auto;}
+.modal{
+  background:var(--bg-elevated);border:1px solid var(--border-strong);border-radius:var(--r-lg);
+  max-width:560px;width:100%;max-height:84vh;overflow-y:auto;padding:34px;
+  transform:scale(0.96) translateY(10px);transition:transform .25s var(--ease);
+}
+.modal-overlay.is-open .modal{transform:scale(1) translateY(0);}
+.modal__close{position:absolute;top:0;right:0;} /* replaced by header row */
+.modal__header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;}
+.modal__title{font-family:var(--font-display);font-size:1.3rem;font-weight:600;margin:0;}
+.modal__close-btn{background:none;border:none;color:var(--text-mute);font-size:1.4rem;line-height:1;padding:4px;}
+.modal__close-btn:hover{color:var(--text);}
+.modal__row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:0.92rem;}
+.modal__row span:first-child{color:var(--text-mute);}
+.modal__block{margin-top:18px;}
+.modal__block h4{font-size:0.8rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;}
+.modal__block p{color:var(--text-dim);margin:0;font-size:0.92rem;line-height:1.5;}
+
+/* ---------- toast ---------- */
+.toast{
+  position:fixed;bottom:26px;left:50%;transform:translateX(-50%);
+  background:var(--danger);color:#fff;padding:12px 22px;border-radius:999px;
+  font-size:0.88rem;z-index:300;box-shadow:0 14px 30px -10px rgba(0,0,0,.5);
+  opacity:0;transition:opacity .25s var(--ease);pointer-events:none;
+}
+.toast.is-visible{opacity:1;}
+.challenge-launcher{position:fixed;left:22px;bottom:22px;z-index:120;border:1px solid var(--border-strong);border-radius:999px;background:rgba(16,21,31,.9);color:var(--text-dim);padding:10px 15px;font-size:.78rem;cursor:pointer;box-shadow:0 12px 28px -18px #000;backdrop-filter:blur(12px);transition:color .2s var(--ease),border-color .2s var(--ease),transform .2s var(--ease);}
+.challenge-launcher:hover{color:var(--text);border-color:var(--accent);transform:translateY(-2px);}
+.challenge-overlay{position:fixed;inset:0;z-index:150;background:rgba(4,5,8,.62);backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .25s var(--ease);}
+.challenge-overlay.is-open{opacity:1;pointer-events:auto;}
+.challenge-panel{position:absolute;left:22px;bottom:72px;width:min(390px,calc(100vw - 44px));max-height:78vh;overflow:auto;background:rgba(255,255,255,0.06);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border:1px solid rgba(255,255,255,0.14);box-shadow:0 20px 50px -12px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.16);border-radius:var(--r-lg);padding:22px;transform:translateY(12px) scale(.98);transition:transform .25s var(--ease);}
+.challenge-overlay.is-open .challenge-panel{transform:none;}
+.challenge-panel__header{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;margin-bottom:18px;}
+.challenge-panel__title{font-family:var(--font-display);font-size:1.3rem;margin:0;}.challenge-panel__copy{color:var(--text-dim);font-size:.82rem;margin:5px 0 0;}
+.challenge-panel__close{border:0;background:none;color:var(--text-mute);font-size:1.35rem;cursor:pointer;}.challenge-panel__close:hover{color:var(--text);}
+.challenge-actions{display:grid;gap:9px;}.challenge-action{display:flex;align-items:center;gap:12px;text-align:left;border:1px solid var(--border);border-radius:var(--r-md);background:var(--card);color:var(--text);padding:13px;cursor:pointer;transition:border-color .2s var(--ease),background .2s var(--ease);}.challenge-action:hover{border-color:var(--accent);background:var(--accent-soft);}.challenge-action strong{display:block;font-size:.86rem;}.challenge-action span{display:block;color:var(--text-mute);font-size:.74rem;margin-top:2px;}
+.challenge-results{display:grid;gap:9px;margin-top:16px;}.challenge-card{border:1px solid var(--border);border-radius:var(--r-md);padding:13px;background:var(--card);}.challenge-card__summary{color:var(--text-dim);font-size:.78rem;line-height:1.45;margin:6px 0;}.challenge-card__meta{color:var(--text-mute);font-size:.72rem;}.challenge-card__button{margin-top:9px;}.challenge-info{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px;}.challenge-info div{border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;background:var(--card);}.challenge-info b{display:block;font-size:1.05rem;}.challenge-info span{color:var(--text-mute);font-size:.7rem;}.output-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r-md);}.output-table{width:100%;min-width:760px;border-collapse:collapse;font-size:.78rem;text-align:left;}.output-table th,.output-table td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;}.output-table th{color:var(--text-dim);font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}.output-table td{color:var(--text);}.output-table tr:last-child td{border-bottom:0;}
+@media (max-width:560px){.challenge-launcher{left:14px;bottom:14px}.challenge-panel{left:14px;bottom:64px;width:calc(100vw - 28px);}}
+
+.disclosure-note{
+  margin-top:12px;color:var(--text-mute);font-size:0.78rem;max-width:520px;
+}
+
+/* ---------- responsive ---------- */
+@media (max-width:900px){
+  .stat-grid{grid-template-columns:repeat(2,1fr);}
+  .stat-card--wide{grid-column:span 2;}
+  .grid-2{grid-template-columns:1fr;}
+  .ai-block-grid{grid-template-columns:1fr;}
+  .history-row{grid-template-columns:1.4fr 1fr 1fr;}
+  .history-row__risk, .history-row__date{display:none;}
+}
+@media (max-width:560px){
+  .price-row{flex-direction:column;}
+  .price-row select{max-width:none;}
+  .decision__stats{flex-direction:column;align-items:stretch;}
+  .history-row{grid-template-columns:1fr;gap:6px;}
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001ms !important;transition-duration:.001ms !important;}
+}
+
+/* ==========================================================
+   MAC-STYLE GLASS / MIRROR EFFECT
+   Applied to every "box" surface: panels, cards, rows, modal,
+   inputs, badges, tags, toolbar controls, progress track, etc.
+========================================================== */
+.panel,
+.ai-block,
+.stat-card,
+.history-row,
+.history-search,
+.history-controls select,
+.modal,
+.link-confirmation,
+.field input,
+.field select,
+.btn--ghost,
+.history-btn,
+.toast,
+.pill-group,
+.progress__track,
+.bar,
+#screen-loading .loader__ring,
+.decision__stat,
+.challenge-action,
+.challenge-card,
+.challenge-info div{
+  position:relative;
+  overflow:hidden;
+  background:rgba(255,255,255,0.055) !important;
+  backdrop-filter:blur(24px) saturate(180%);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid rgba(255,255,255,0.14) !important;
+  box-shadow:
+    0 10px 34px -8px rgba(0,0,0,0.55),
+    inset 0 1px 0 rgba(255,255,255,0.16),
+    inset 0 -12px 24px -18px rgba(255,255,255,0.08);
+}
+.panel::before,
+.ai-block::before,
+.stat-card::before,
+.history-row::before,
+.modal::before,
+.link-confirmation::before,
+.toast::before{
+  content:"";
+  position:absolute;top:0;left:0;right:0;height:52%;
+  background:linear-gradient(to bottom, rgba(255,255,255,0.16), rgba(255,255,255,0));
+  pointer-events:none;
+}
+/* thin roving highlight along the top edge, like a specular reflection */
+.panel::after,
+.ai-block::after,
+.stat-card::after,
+.history-row::after,
+.modal::after{
+  content:"";
+  position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.65), transparent);
+  pointer-events:none;
+}
+.history-row:hover{
+  background:rgba(255,255,255,0.09) !important;
+  box-shadow:
+    0 14px 40px -10px rgba(0,0,0,0.6),
+    inset 0 1px 0 rgba(255,255,255,0.22);
+}
+.field input:focus, .field select:focus{
+  background:rgba(255,255,255,0.08) !important;
+}
+</style>
+</head>
+<body>
+
+<button class="back-btn" id="backBtn" hidden>← Back</button>
+<div class="topbar">
+  <button class="history-btn" id="historyBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+    History
+  </button>
+</div>
+<button class="challenge-launcher" id="challengeLauncher" aria-expanded="false">☰ Sample Scenarios</button>
+<div class="challenge-overlay" id="challengeOverlay" aria-hidden="true" inert>
+  <aside class="challenge-panel" role="dialog" aria-labelledby="challengeTitle">
+    <div class="challenge-panel__header"><div><h2 class="challenge-panel__title" id="challengeTitle">Sample Scenarios</h2><p class="challenge-panel__copy">Try the calculator with ready-made numbers.</p></div><button class="challenge-panel__close" id="challengeClose" aria-label="Close">×</button></div>
+    <div class="challenge-actions">
+      <button class="challenge-action" id="browseRequests"><span>▤</span><div><strong>Browse Samples</strong><span>View ready-made scenarios</span></div></button>
+      <button class="challenge-action" id="analyzeOfficial"><span>◉</span><div><strong>Try a Sample</strong><span>Run a local calculation</span></div></button>
+      <button class="challenge-action" id="datasetInfo"><span>▥</span><div><strong>Calculator Information</strong><span>See how this page works</span></div></button>
+      <button class="challenge-action" id="generateOutput"><span>⇩</span><div><strong>Download History CSV</strong><span>Export your local results</span></div></button>
+    </div>
+    <div class="challenge-results" id="challengeResults" hidden></div>
+  </aside>
+</div>
+
+<div id="app">
+
+  <!-- SCREEN 0: LANDING -->
+  <section class="screen is-active" id="screen-landing">
+    <h1 class="landing__title">BUY OR WAIT?</h1>
+    <p class="landing__sub">Know whether now is the right time to buy.</p>
+    <button class="btn btn--primary landing__cta" id="startBtn">Start Analysis</button>
+  </section>
+
+  <!-- SCREEN 1: PRODUCT -->
+  <section class="screen" id="screen-product">
+    <div class="step">
+      <div class="progress"><span>Step 1 of 3</span><div class="progress__track"><div class="progress__fill" style="width:33%"></div></div></div>
+      <h1>What are you thinking of buying?</h1>
+      <p class="step__lead">Give it a name so your recommendation is easy to recognize later.</p>
+      <div class="field-group">
+        <div class="field">
+          <span class="field__label">Product name</span>
+          <input type="text" id="inputProductName" placeholder="MacBook Air" />
+          <span class="field-error" id="errProductName"></span>
+        </div>
+        <div class="field">
+          <span class="field__label">Product link <span class="field__desc">(optional, use ?price=85000 for price)</span></span>
+          <input type="url" id="inputProductLink" placeholder="https://shop.example.com/macbook-air?price=85000" />
+          <span class="field-error" id="productLookupStatus"></span>
+        </div>
+      </div>
+      <div class="step__actions">
+        <button class="btn btn--primary" id="toStep2">Next</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCREEN 2: PRICE -->
+  <section class="screen" id="screen-price">
+    <div class="step">
+      <div class="progress"><span>Step 2 of 3</span><div class="progress__track"><div class="progress__fill" style="width:66%"></div></div></div>
+      <h1 id="priceStepTitle">How much does it cost?</h1>
+      <p class="step__lead" id="priceStepLead">We'll use this to weigh the purchase against your finances.</p>
+      <div class="link-confirmation" id="linkConfirmation" hidden>
+        <span class="field__label">Product found from your link</span>
+        <strong id="confirmedProductName">—</strong>
+      </div>
+      <div class="field-group">
+        <div class="field">
+          <span class="field__label" id="priceFieldLabel">Price</span>
+          <div class="price-row">
+            <select id="inputCurrency">
+              <option value="₹">₹ INR</option>
+              <option value="$">$ USD</option>
+              <option value="€">€ EUR</option>
+              <option value="£">£ GBP</option>
+            </select>
+            <input type="number" id="inputPrice" min="0" step="0.01" placeholder="85,000" />
+          </div>
+          <span class="field-error" id="errPrice"></span>
+        </div>
+      </div>
+      <div class="step__actions">
+        <button class="btn btn--ghost" id="toStep1Back">Back</button>
+        <button class="btn btn--primary" id="toStep3">Next</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCREEN 3: FINANCIALS -->
+  <section class="screen" id="screen-financials">
+    <div class="step">
+      <div class="progress"><span>Step 3 of 3</span><div class="progress__track"><div class="progress__fill" style="width:100%"></div></div></div>
+      <h1>Let's understand your financial situation.</h1>
+      <p class="step__lead">Everything here stays local to this analysis — nothing is invented on your behalf.</p>
+      <div class="field-group">
+        <div class="field">
+          <span class="field__label">Available balance</span>
+          <span class="field__desc">Cash currently available to spend.</span>
+          <input type="number" id="inputBalance" min="0" step="0.01" placeholder="0.00" />
+        </div>
+        <div class="field">
+          <span class="field__label">Monthly income</span>
+          <span class="field__desc">Your recurring after-tax income.</span>
+          <input type="number" id="inputIncome" min="0" step="0.01" placeholder="0.00" />
+        </div>
+        <div class="field">
+          <span class="field__label">Monthly expenses</span>
+          <span class="field__desc">Your fixed and variable monthly expenses.</span>
+          <input type="number" id="inputExpenses" min="0" step="0.01" placeholder="0.00" />
+        </div>
+        <div class="field">
+          <span class="field__label">Savings</span>
+          <span class="field__desc">Emergency and long-term savings.</span>
+          <input type="number" id="inputSavings" min="0" step="0.01" placeholder="0.00" />
+        </div>
+        <div class="field">
+          <span class="field__label">Existing monthly commitments (optional)</span>
+          <span class="field__desc">Loans, EMIs, subscriptions and other recurring obligations.</span>
+          <input type="number" id="inputCommitments" min="0" step="0.01" placeholder="0.00" />
+        </div>
+        <span class="field-error" id="errFinancials"></span>
+      </div>
+      <div class="step__actions">
+        <button class="btn btn--ghost" id="toStep2Back">Back</button>
+        <button class="btn btn--primary" id="analyzeBtn">Analyze My Decision</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCREEN 4: LOADING -->
+  <section class="screen" id="screen-loading">
+    <div class="loader" id="loadingLoader">
+      <div class="loader__ring"></div>
+      <div class="loader__core"></div>
+    </div>
+    <div class="loading__text" id="loadingText">Understanding your financial situation...</div>
+    <div class="loading__bar"><div class="loading__bar-fill" id="loadingBarFill"></div></div>
+    <div class="step" id="loadingErrorBox" hidden style="max-width:520px;text-align:center;">
+      <p class="field-error" id="loadingErrorText" style="font-size:.95rem;"></p>
+      <div class="step__actions" style="justify-content:center;">
+        <button class="btn" type="button" id="loadingBackBtn">Back</button>
+        <button class="btn btn--primary" type="button" id="loadingRetryBtn">Retry</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCREEN 5: DECISION + ANALYTICS -->
+  <section class="screen" id="screen-decision">
+    <div class="decision-gallery" aria-hidden="true">
+      <img src="models/buy.png" alt="" />
+      <img src="models/wait.png" alt="" />
+      <img src="models/dont-buy.png" alt="" />
+    </div>
+    <div class="step" style="max-width:640px;">
+      <div id="modeBadgeWrap"></div>
+      <div class="decision__eyebrow">Math-based recommendation</div>
+      <img class="decision__img" id="decisionImg" src="models/wait.png" alt="" />
+      <div class="decision__word" id="decisionWord">WAIT</div>
+      <p class="decision__reason" id="decisionReason">—</p>
+
+      <div class="decision__stats">
+        <div class="decision__stat">
+          <div class="decision__stat-label">Risk level</div>
+          <div class="decision__stat-value" id="statRisk">—</div>
+        </div>
+        <div class="decision__stat">
+          <div class="decision__stat-label">Confidence</div>
+          <div class="decision__stat-value" id="statConfidence">—</div>
+        </div>
+        <div class="decision__stat">
+          <div class="decision__stat-label">Purchase time</div>
+          <div class="decision__stat-value" id="statMonths">—</div>
+        </div>
+        <div class="decision__stat">
+          <div class="decision__stat-label">Purchase date</div>
+          <div class="decision__stat-value" id="statDate">—</div>
+        </div>
+        <div class="decision__stat">
+          <div class="decision__stat-label">Payment strategy</div>
+          <div class="decision__stat-value" id="statStrategy">—</div>
+        </div>
+      </div>
+
+      <button class="btn btn--ghost" id="viewAnalysisBtn">View Full Analysis ↓</button>
+    </div>
+
+    <div id="analytics">
+
+      <div class="section-head">
+        <h2>Financial overview</h2>
+        <p>A live snapshot of the numbers your decisions are built on.</p>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <span class="stat-card__label">Available balance</span>
+          <span class="stat-card__value" id="ovBalance">—</span>
+          <span class="stat-card__hint">Cash on hand right now</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card__label">Monthly income</span>
+          <span class="stat-card__value" id="ovIncome">—</span>
+          <span class="stat-card__hint">After-tax, recurring</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card__label">Monthly expenses</span>
+          <span class="stat-card__value" id="ovExpenses">—</span>
+          <span class="stat-card__hint">Fixed + variable costs</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card__label">Savings</span>
+          <span class="stat-card__value" id="ovSavings">—</span>
+          <span class="stat-card__hint">Emergency + long-term</span>
+        </div>
+        <div class="stat-card stat-card--wide">
+          <span class="stat-card__label">Remaining monthly budget</span>
+          <span class="stat-card__value" id="ovRemaining">—</span>
+          <span class="stat-card__hint">Monthly income minus expenses and commitments.</span>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <span class="stat-card__label">Budget utilization</span>
+          <div class="bar"><div class="bar__fill" id="budgetBar"></div></div>
+          <p id="budgetPct">—</p>
+        </div>
+        <div class="panel">
+          <span class="stat-card__label">Spending overview</span>
+          <svg viewBox="0 0 320 130" style="width:100%;height:130px;margin-top:10px;" id="spendChart">
+            <line x1="0" y1="105" x2="320" y2="105" stroke="var(--border)"/>
+            <polyline id="spendLine" fill="none" stroke="var(--accent)" stroke-width="2.5" points="0,105 320,105"/>
+            <polygon id="spendFill" fill="rgba(76,141,255,0.12)" stroke="none" points="0,105 320,105"/>
+          </svg>
+          <div class="chart-legend">
+            <span><i class="dot dot--income"></i>Income</span>
+            <span><i class="dot dot--expense"></i>Expenses</span>
+            <span><i class="dot dot--commit"></i>Commitments</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-head">
+        <h2>Financial health</h2>
+      </div>
+      <div class="panel" style="text-align:left;max-width:640px;margin-bottom:44px;">
+        <span class="health-badge" id="healthBadge">GOOD</span>
+        <p id="healthNote">—</p>
+      </div>
+
+      <div class="section-head">
+        <h2>Recommendation</h2>
+      </div>
+      <div class="ai-block-grid">
+        <div class="ai-block">
+          <h3>Reasoning</h3>
+          <p id="aiReasoning">—</p>
+        </div>
+        <div class="ai-block">
+          <h3>Financial impact</h3>
+          <p id="aiImpact">—</p>
+        </div>
+        <div class="ai-block">
+          <h3>Suggested next step</h3>
+          <p id="aiNextStep">—</p>
+        </div>
+      </div>
+
+      <div class="section-head">
+        <h2>Buying plan</h2>
+      </div>
+      <div class="timeline" id="buyingPlan"></div>
+
+      <p class="disclosure-note" id="disclosureNote"></p>
+    </div>
+  </section>
+
+  <!-- SCREEN 6: HISTORY -->
+  <section class="screen" id="screen-history">
+    <div style="width:100%;max-width:1080px;">
+      <div class="section-head">
+        <h2>Request history</h2>
+        <p>Completed analyses from your personal and official challenge workflows.</p>
+      </div>
+      <div class="history-toolbar">
+        <input type="text" class="history-search" id="historySearch" placeholder="Search by product name…" />
+        <div class="history-controls">
+          <select id="historyFilter">
+            <option value="ALL">All decisions</option>
+            <option value="BUY_NOW">Buy now</option>
+            <option value="WAIT">Wait</option>
+            <option value="DO_NOT_PROCEED">Don't buy</option>
+          </select>
+          <select id="historySort">
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+          </select>
+        </div>
+      </div>
+      <div class="history-list" id="historyList"></div>
+    </div>
+  </section>
+
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalBody"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   BUY OR WAIT? — single-file app logic
+  All calculations and history stay in the browser.
+============================================================ */
+
+// ---------- state ----------
+const state = {
+  request_id: "",
+  product_name: "",
+  product_link: "",
+  currency: "₹",
+  price: 0,
+  available_balance: 0,
+  monthly_income: 0,
+  monthly_expenses: 0,
+  savings: 0,
+  monthly_commitments: 0,
+  product_from_link: false,
+  mode: null,
+  currentRequestId: null,
+};
+
+let history = [];
+let currentModalId = null;
+
+// ---------- toast ----------
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("is-visible");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=>t.classList.remove("is-visible"), 3600);
+}
+
+// ---------- screen navigation ----------
+const screenOrder = ["screen-landing","screen-product","screen-price","screen-financials","screen-loading","screen-decision"];
+let activeScreen = "screen-landing";
+
+function goToScreen(id){
+  const current = document.getElementById(activeScreen);
+  const next = document.getElementById(id);
+  if(!next || current === next) return;
+
+  current.classList.add("is-leaving");
+  current.classList.remove("is-active");
+
+  requestAnimationFrame(()=>{
+    next.classList.add("is-active");
+    setTimeout(()=>{
+      current.classList.remove("is-leaving");
+    }, 520);
+  });
+
+  activeScreen = id;
+  window.scrollTo({top:0, behavior:"auto"});
+  updateBackButton();
+}
+
+function updateBackButton(){
+  const backBtn = document.getElementById("backBtn");
+  backBtn.hidden = (activeScreen === "screen-landing" || activeScreen === "screen-loading");
+}
+
+document.getElementById("backBtn").addEventListener("click", ()=>{
+  const map = {
+    "screen-product":"screen-landing",
+    "screen-price":"screen-product",
+    "screen-financials":"screen-price",
+    "screen-decision":"screen-landing",
+    "screen-history":"screen-landing",
+  };
+  goToScreen(map[activeScreen] || "screen-landing");
+});
+
+document.getElementById("historyBtn").addEventListener("click", ()=>{
+  renderHistoryList();
+  goToScreen("screen-history");
+});
+
+// ---------- step 0 -> 1 ----------
+document.getElementById("startBtn").addEventListener("click", ()=> goToScreen("screen-product"));
+
+const challengeOverlay = document.getElementById("challengeOverlay");
+const challengeResults = document.getElementById("challengeResults");
+function toggleChallenge(open){
+  challengeOverlay.classList.toggle("is-open", open);
+  challengeOverlay.setAttribute("aria-hidden", String(!open));
+  challengeOverlay.toggleAttribute("inert", !open);
+  document.getElementById("challengeLauncher").setAttribute("aria-expanded", String(open));
+}
+document.getElementById("challengeLauncher").addEventListener("click", ()=>toggleChallenge(true));
+document.getElementById("challengeClose").addEventListener("click", ()=>toggleChallenge(false));
+challengeOverlay.addEventListener("click", (event)=>{ if(event.target === challengeOverlay) toggleChallenge(false); });
+
+function challengeCard(request){
+  const amount = Number(request.requested_amount || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return `<article class="challenge-card"><strong>${escapeHtml(request.request_id || "Sample")}</strong><p class="challenge-card__summary">${escapeHtml(request.request_text || "No sample summary provided.")}</p><div class="challenge-card__meta">${escapeHtml(request.request_type || "Sample")} · ${escapeHtml(request.request_date || "Today")} · Amount ${amount}</div><button type="button" class="btn btn--primary challenge-card__button" data-official-id="${escapeHtml(request.request_id || "")}">Calculate</button></article>`;
+}
+function showOfficialRequests(startAnalysis){
+  challengeResults.hidden = false;
+  const examples = [
+    {request_id:"sample_1", request_text:"A laptop for work", request_type:"Essential", request_date:"Today", requested_amount:65000, currency:"₹", available_balance:110000, monthly_income:90000, monthly_expenses:42000, savings:180000, monthly_commitments:6000},
+    {request_id:"sample_2", request_text:"A weekend gaming console", request_type:"Discretionary", request_date:"Today", requested_amount:55000, currency:"₹", available_balance:70000, monthly_income:60000, monthly_expenses:44000, savings:50000, monthly_commitments:8000},
+  ];
+  challengeResults.innerHTML = `<p class="challenge-panel__copy">Local sample scenarios · ${examples.length}</p>${examples.map(challengeCard).join("")}`;
+  challengeResults.querySelectorAll("[data-official-id]").forEach((button)=>button.addEventListener("click", (event)=>{
+    event.preventDefault();
+    const sample = examples.find((item)=>item.request_id === button.dataset.officialId);
+    if(sample) startOfficialAnalysis(sample, button);
+  }));
+  if(startAnalysis) startOfficialAnalysis(examples[0]);
+}
+document.getElementById("browseRequests").addEventListener("click", ()=>showOfficialRequests(false));
+document.getElementById("analyzeOfficial").addEventListener("click", ()=>showOfficialRequests(true));
+document.getElementById("datasetInfo").addEventListener("click", ()=>{
+  challengeResults.hidden = false;
+  challengeResults.innerHTML = `<p class="challenge-panel__copy">This version runs entirely in your browser.</p><div class="challenge-info"><div><b>0</b><span>network requests</span></div><div><b>100%</b><span>local calculations</span></div><div><b>0</b><span>backend dependencies</span></div></div>`;
+});
+document.getElementById("generateOutput").addEventListener("click", ()=>{
+  const rows = history.map((entry)=>({product:entry.product_name, price:entry.price, recommendation:entry.recommendation, risk:entry.risk_level, completed:entry.created_at}));
+  const csv = ["product,price,recommendation,risk,completed", ...rows.map((row)=>Object.values(row).map((value)=>`"${String(value ?? "").replaceAll('"','""')}"`).join(","))].join("\n");
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([csv], {type:"text/csv"}));
+  link.download = "buy-or-wait-history.csv";
+  link.click();
+  URL.revokeObjectURL(link.href);
+  challengeResults.hidden = false;
+  challengeResults.innerHTML = `<p class="field-error is-ok">Downloaded ${rows.length} local result(s) as CSV.</p>`;
+});
+
+function renderOutputFile(payload){
+  const columns = Array.isArray(payload.columns) ? payload.columns : [];
+  const rows = Array.isArray(payload.rows) ? payload.rows : [];
+  if(!columns.length || !rows.length) return `<p class="field-error">Output file generated, but it contains no result rows.</p>`;
+  const header = columns.map(column => `<th>${escapeHtml(column.replaceAll("_", " "))}</th>`).join("");
+  const body = rows.map(row => `<tr>${columns.map(column => `<td>${escapeHtml(String(row[column] ?? ""))}</td>`).join("")}</tr>`).join("");
+  return `<p class="field-error is-ok">Output generated at ${escapeHtml(payload.path)} · ${Number(payload.count || rows.length)} results</p><div class="output-table-wrap"><table class="output-table"><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function showLoadingUI(){
+  document.getElementById("loadingErrorBox").hidden = true;
+  document.getElementById("loadingLoader").hidden = false;
+  document.getElementById("loadingText").hidden = false;
+  document.querySelector("#screen-loading .loading__bar").hidden = false;
+}
+
+function showOfficialAnalysisError(message){
+  document.getElementById("loadingLoader").hidden = true;
+  document.getElementById("loadingText").hidden = true;
+  document.querySelector("#screen-loading .loading__bar").hidden = true;
+  document.getElementById("loadingErrorText").textContent = message || "Analysis could not be completed.";
+  document.getElementById("loadingErrorBox").hidden = false;
+}
+
+document.getElementById("loadingRetryBtn").addEventListener("click", ()=>{
+  if(state.mode === "official" && state.currentSample){
+    startOfficialAnalysis(state.currentSample);
+  } else {
+    goToScreen("screen-financials");
+  }
+});
+document.getElementById("loadingBackBtn").addEventListener("click", ()=>{
+  if(state.mode === "official"){
+    goToScreen("screen-landing");
+    showOfficialRequests(false);
+    toggleChallenge(true);
+  } else {
+    goToScreen("screen-financials");
+  }
+});
+
+async function startOfficialAnalysis(sample, triggerButton){
+  if(!sample) return;
+  if(triggerButton){ triggerButton.disabled = true; triggerButton.textContent = "Analyzing..."; }
+  state.mode = "official";
+  state.currentRequestId = sample.request_id;
+  state.currentSample = sample;
+  toggleChallenge(false);
+  console.log("[Official Analysis] Showing loading screen");
+  goToScreen("screen-loading");
+  showLoadingUI();
+  try{
+    state.request_id = sample.request_id;
+    state.product_name = sample.request_text;
+    state.price = Number(sample.requested_amount || 0);
+    state.currency = sample.currency || "₹";
+    state.available_balance = Number(sample.available_balance || 0);
+    state.monthly_income = Number(sample.monthly_income || 0);
+    state.monthly_expenses = Number(sample.monthly_expenses || 0);
+    state.savings = Number(sample.savings || 0);
+    state.monthly_commitments = Number(sample.monthly_commitments || 0);
+    console.log("[Official Analysis] State populated:", { price: state.price, balance: state.available_balance, currency: state.currency });
+    console.log("[Official Analysis] Starting local calculation");
+    const analysisPromise = analyzePurchase(state);
+    await runLoadingSequence(analysisPromise);
+    const result = await analysisPromise;
+    console.log("[Official Analysis] Analysis completed", result);
+    showResultPage(result, "Official Analysis");
+    saveHistory(result);
+  }catch(error){
+    console.error("[Official Analysis] Failed:", error);
+    showOfficialAnalysisError(error.message || "The local calculation could not be completed.");
+  }finally{
+    if(triggerButton){ triggerButton.disabled = false; triggerButton.textContent = "Analyze Request"; }
+  }
+}
+
+// ---------- step 1 ----------
+document.getElementById("toStep1Back") && document.getElementById("toStep1Back").addEventListener("click", ()=>goToScreen("screen-landing"));
+
+function scanProductLink(link){
+  const url = new URL(link);
+  const pathParts = url.pathname.split("/").filter(Boolean);
+  const rawName = decodeURIComponent(pathParts[pathParts.length - 1] || url.hostname.split(".")[0]);
+  const productName = rawName
+    .replace(/\.(html?|php)$/i, "")
+    .replace(/[-_+]+/g, " ")
+    .replace(/\b\d{3,}\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const priceValue = url.searchParams.get("price") || url.searchParams.get("amount") || url.searchParams.get("cost");
+  const priceMatch = priceValue || link.match(/(?:price|amount|cost)[=/:-]*([\d,]+(?:\.\d+)?)/i)?.[1];
+  const price = priceMatch ? Number(String(priceMatch).replace(/,/g, "")) : 0;
+  const currency = url.searchParams.get("currency") || (link.includes("₹") ? "₹" : link.includes("€") ? "€" : link.includes("£") ? "£" : link.includes("$") ? "$" : "₹");
+  return {productName: productName || "Linked product", price, currency};
+}
+
+document.getElementById("toStep2").addEventListener("click", ()=>{
+  const link = document.getElementById("inputProductLink").value.trim();
+  let name = document.getElementById("inputProductName").value.trim();
+  const errEl = document.getElementById("errProductName");
+  const linkStatus = document.getElementById("productLookupStatus");
+  errEl.textContent = "";
+
+  if(link){
+    try{
+      const scanned = scanProductLink(link);
+      name = name || scanned.productName;
+      document.getElementById("inputProductName").value = name;
+      state.product_link = link;
+      state.product_from_link = true;
+      state.currency = scanned.currency;
+      if(scanned.price > 0){
+        document.getElementById("inputPrice").value = scanned.price;
+        document.getElementById("inputCurrency").value = scanned.currency;
+        linkStatus.className = "field-error is-ok";
+        linkStatus.textContent = `Scanned ${scanned.productName} and ${formatMoney(scanned.price, scanned.currency)} from the link.`;
+      }else{
+        linkStatus.className = "field-error is-loading";
+        linkStatus.textContent = `Scanned ${scanned.productName}. Enter the price on the next step.`;
+      }
+    }catch(error){
+      linkStatus.className = "field-error";
+      linkStatus.textContent = "Enter a valid product link.";
+      return;
+    }
+  }
+
+  if(!name){
+    errEl.textContent = "Enter a product name.";
+    return;
+  }
+  state.product_name = name;
+  if(!link) state.product_link = "";
+  if(!link) state.product_from_link = false;
+  document.getElementById("priceStepTitle").textContent = "How much does it cost?";
+  document.getElementById("priceStepLead").textContent = "We'll use this to weigh the purchase against your finances.";
+  document.getElementById("priceFieldLabel").textContent = "Price";
+  document.getElementById("linkConfirmation").hidden = !link;
+  if(link) document.getElementById("confirmedProductName").textContent = name;
+  goToScreen("screen-price");
+});
+
+// ---------- step 2 ----------
+document.getElementById("toStep2Back").addEventListener("click", ()=>goToScreen("screen-price"));
+
+document.getElementById("toStep3").addEventListener("click", ()=>{
+  const priceVal = parseFloat(document.getElementById("inputPrice").value);
+  const errEl = document.getElementById("errPrice");
+  if(isNaN(priceVal) || priceVal <= 0){
+    errEl.textContent = "Please enter a valid price greater than zero.";
+    return;
+  }
+  errEl.textContent = "";
+  state.price = priceVal;
+  state.currency = document.getElementById("inputCurrency").value;
+  goToScreen("screen-financials");
+});
+
+// ---------- step 3 -> analyze ----------
+document.getElementById("analyzeBtn").addEventListener("click", async (event)=>{
+  event.preventDefault();
+
+  const btn = document.getElementById("analyzeBtn");
+  const balance = parseFloat(document.getElementById("inputBalance").value);
+  const income = parseFloat(document.getElementById("inputIncome").value);
+  const expenses = parseFloat(document.getElementById("inputExpenses").value);
+  const savings = parseFloat(document.getElementById("inputSavings").value);
+  const commitments = parseFloat(document.getElementById("inputCommitments").value || "0");
+
+  const errEl = document.getElementById("errFinancials");
+  if(!state.request_id && [balance, income, expenses, savings].some(v => !Number.isFinite(v) || v < 0)){
+    errEl.textContent = "Please fill in balance, income, expenses and savings with valid numbers.";
+    return;
+  }
+  errEl.textContent = "";
+
+  state.available_balance = Number.isFinite(balance) ? balance : 0;
+  state.monthly_income = Number.isFinite(income) ? income : 0;
+  state.monthly_expenses = Number.isFinite(expenses) ? expenses : 0;
+  state.savings = Number.isFinite(savings) ? savings : 0;
+  state.monthly_commitments = Number.isFinite(commitments) ? commitments : 0;
+  state.mode = "personal";
+
+  btn.disabled = true;
+  btn.textContent = "Analyzing…";
+
+  console.log("[Analyze] START");
+  console.log("[Analyze] STATE:", state);
+
+  goToScreen("screen-loading");
+  showLoadingUI();
+
+  try{
+    // Run the short loading animation alongside the local calculation.
+    const analysisPromise = analyzePurchase(state);
+    await runLoadingSequence(analysisPromise);
+
+    const result = await analysisPromise;
+
+    console.log("[Analyze] FINAL RESULT:", result);
+
+    if(!result || typeof result !== "object"){
+      throw new Error("No result was returned from the local calculation.");
+    }
+
+    state.lastResult = result;
+
+    console.log("[Analyze] RENDERING RESULT");
+    showResultPage(result, "Analyze");
+
+    saveHistory(result);
+
+  }catch(err){
+    console.error("[Analyze] FINAL ERROR:", err);
+    showOfficialAnalysisError(err.message || "The local calculation failed. Please try again.");
+  }finally{
+    btn.disabled = false;
+    btn.textContent = "Analyze My Decision";
+  }
+});
+
+// ---------- loading sequence ----------
+function runLoadingSequence(analysisPromise){
+  const messages = [
+    "Understanding your financial situation...",
+    "Calculating your monthly budget...",
+    "Evaluating the purchase...",
+    "Finding the right time...",
+    "Preparing your recommendation...",
+  ];
+  const textEl = document.getElementById("loadingText");
+  const barFill = document.getElementById("loadingBarFill");
+
+  return new Promise(resolve=>{
+    let i = 0;
+    let analysisFinished = false;
+    barFill.style.width = "0%";
+    textEl.style.opacity = 1;
+
+    analysisPromise.then(
+      ()=>{ analysisFinished = true; },
+      ()=>{ analysisFinished = true; },
+    );
+
+    function step(){
+      textEl.style.opacity = 0;
+      setTimeout(()=>{
+        textEl.textContent = messages[i];
+        textEl.style.opacity = 1;
+        barFill.style.width = `${Math.min(96, ((i+1)/messages.length)*100)}%`;
+        i++;
+        if(!analysisFinished){
+          if(i >= messages.length) i = 0;
+          setTimeout(step, 620);
+        }else{
+          barFill.style.width = "100%";
+          setTimeout(resolve, 260);
+        }
+      }, 180);
+    }
+    step();
+  });
+}
+
+/* ============================================================
+   FINANCIAL ENGINE — verified facts, computed in JS (not the AI)
+============================================================ */
+function computeFinancialFacts(data){
+  const monthly_surplus = data.monthly_income - data.monthly_expenses - data.monthly_commitments;
+  const budget_utilization = data.monthly_income > 0
+    ? (data.monthly_expenses + data.monthly_commitments) / data.monthly_income
+    : 1;
+  const purchase_to_balance_ratio = data.available_balance > 0
+    ? data.price / data.available_balance
+    : Infinity;
+  const savings_months_of_expenses = data.monthly_expenses > 0
+    ? data.savings / data.monthly_expenses
+    : 0;
+  const estimated_monthly_saving_capacity = Math.max(0, monthly_surplus * 0.6);
+
+  return {
+    monthly_surplus,
+    budget_utilization,
+    purchase_to_balance_ratio,
+    savings_months_of_expenses,
+    estimated_monthly_saving_capacity,
+  };
+}
+
+/* ============================================================
+  MATH DECISION ENGINE
+   analyzePurchase() is the single local calculation.
+============================================================ */
+async function analyzePurchase(data){
+  const facts = computeFinancialFacts(data);
+  const price = Number(data.price) || 0;
+  const balanceAfterPurchase = Math.max(0, data.available_balance - price);
+  const safetyBuffer = Math.max(data.monthly_expenses * 2, data.monthly_income * 0.2);
+  const canPayInFull = price <= data.available_balance;
+  const keepsBuffer = balanceAfterPurchase >= safetyBuffer;
+  let recommendation = "WAIT";
+  let payment_strategy = "SAVE_AND_BUY";
+  let confidence = 78;
+  let risk_level = "MEDIUM";
+  let months = 1;
+  let monthly_saving_target = 0;
+  let reasoning;
+  let financial_impact;
+  let next_step;
+
+  if(canPayInFull && keepsBuffer && facts.budget_utilization < 0.85){
+    recommendation = "BUY_NOW";
+    payment_strategy = "PAY_IN_FULL";
+    confidence = 92;
+    risk_level = "LOW";
+    months = 0;
+    reasoning = `Your balance covers ${formatMoney(price, data.currency)} and leaves a healthy emergency buffer after the purchase.`;
+    financial_impact = `Your estimated balance after buying would be ${formatMoney(balanceAfterPurchase, data.currency)}.`;
+    next_step = "Proceed, then keep your regular savings contributions on track.";
+  } else if(canPayInFull && facts.budget_utilization < 0.95){
+    recommendation = "BUY_NOW";
+    payment_strategy = "PAY_IN_FULL";
+    confidence = 74;
+    risk_level = "MEDIUM";
+    months = 0;
+    reasoning = `You can pay for this purchase, but it would noticeably reduce your available cushion.`;
+    financial_impact = `Your estimated balance would fall to ${formatMoney(balanceAfterPurchase, data.currency)}.`;
+    next_step = "Proceed only if this purchase is a priority and avoid additional large expenses this month.";
+  } else if(facts.monthly_surplus > 0){
+    months = Math.min(6, Math.max(1, Math.ceil(price / Math.max(1, facts.estimated_monthly_saving_capacity))));
+    monthly_saving_target = Math.ceil((price / months) / 100) * 100;
+    reasoning = `Your monthly surplus is ${formatMoney(facts.monthly_surplus, data.currency)}, so saving first protects your current balance.`;
+    financial_impact = "Waiting avoids a large immediate reduction in your cash buffer.";
+    next_step = `Save ${formatMoney(monthly_saving_target, data.currency)} per month for ${months} month(s), then reassess.`;
+  } else {
+    recommendation = "DO_NOT_PROCEED";
+    payment_strategy = "WAIT";
+    confidence = 89;
+    risk_level = "HIGH";
+    months = 3;
+    reasoning = "Your monthly expenses and commitments leave no positive surplus for this purchase right now.";
+    financial_impact = "Buying now could deepen a monthly shortfall and weaken your savings buffer.";
+    next_step = "Reduce expenses or increase income before reconsidering this purchase.";
+  }
+
+  return {
+    recommendation,
+    confidence,
+    risk_level,
+    reasoning,
+    financial_impact,
+    recommended_months_to_wait: months,
+    recommended_purchase_date: formatISODate(addMonths(new Date(), months)),
+    payment_strategy,
+    monthly_saving_target,
+    next_step,
+    mode: "MATH",
+    facts,
+  };
+}
+
+function normalizeBackendDecision(result){
+  // Accept both backend-canonical values and any legacy/forwarded values
+  const recommendationMap = {
+    PAY_IN_FULL: "BUY_NOW",
+    PAY_PARTIALLY: "BUY_NOW",
+    USE_INSTALLMENTS: "WAIT",
+    SAVE_AND_BUY: "WAIT",
+    WAIT: "WAIT",
+    DO_NOT_PROCEED: "DO_NOT_PROCEED",
+    // backward compat — in case any old response slips through
+    BUY_NOW: "BUY_NOW",
+  };
+  const recommendation = recommendationMap[result?.recommendation] || "WAIT";
+
+  const rawConfidence = Number(result?.confidence);
+  const confidence = Number.isFinite(rawConfidence)
+    ? Math.min(100, Math.max(0, rawConfidence))
+    : 50;
+
+  const rawMonths = Number(result?.months_to_wait);
+  const recommended_months_to_wait = Number.isFinite(rawMonths)
+    ? Math.max(0, Math.round(rawMonths))
+    : 0;
+
+  const rawTarget = Number(result?.monthly_saving_target);
+  const monthly_saving_target = Number.isFinite(rawTarget)
+    ? Math.max(0, rawTarget)
+    : 0;
+
+  return {
+    recommendation,
+    confidence,
+    risk_level: ["LOW","MEDIUM","HIGH","UNKNOWN"].includes(result?.risk_level) ? result.risk_level : "UNKNOWN",
+    reasoning: result?.reasoning || "No reasoning was provided.",
+    financial_impact: result?.financial_impact || "No financial impact information was provided.",
+    recommended_months_to_wait,
+    recommended_purchase_date: result?.recommended_purchase_date || null,
+    payment_strategy: ["PAY_IN_FULL","PAY_PARTIALLY","SAVE_AND_BUY","USE_INSTALLMENTS","WAIT"].includes(result?.payment_strategy) ? result.payment_strategy : "WAIT",
+    monthly_saving_target,
+    next_step: result?.next_step || "Review your financial situation before making the purchase.",
+  };
+}
+
+/* Legacy browser decision code retained only as inert documentation. */
+/*
+  const {monthly_surplus, budget_utilization, purchase_to_balance_ratio, savings_months_of_expenses, estimated_monthly_saving_capacity} = facts;
+
+  let recommendation, confidence, risk_level, payment_strategy;
+  let reasoning, financial_impact, next_step;
+  let months_to_wait = 0;
+
+  const canPayFromBalance = purchase_to_balance_ratio <= 1;
+  const leavesHealthyBuffer = (data.available_balance - data.price) >= (data.monthly_expenses * 2);
+
+  if(canPayFromBalance && leavesHealthyBuffer && budget_utilization < 0.85){
+    recommendation = "BUY_NOW";
+    payment_strategy = "PAY_IN_FULL";
+    confidence = 88;
+    risk_level = "LOW";
+    reasoning = `Your available balance comfortably covers the ${formatMoney(data.price, data.currency)} price while keeping more than two months of expenses in reserve.`;
+    financial_impact = `Paying in full would leave you with roughly ${formatMoney(data.available_balance - data.price, data.currency)}, still well above your safety threshold.`;
+    next_step = "Proceed with the purchase and continue tracking your monthly budget as usual.";
+  } else if(canPayFromBalance && budget_utilization < 0.95){
+    recommendation = "BUY_NOW";
+    payment_strategy = "PAY_IN_FULL";
+    confidence = 74;
+    risk_level = "MEDIUM";
+    reasoning = `You can cover this purchase from your available balance, though it will noticeably reduce your short-term cushion.`;
+    financial_impact = `Your balance would drop to roughly ${formatMoney(Math.max(0, data.available_balance - data.price), data.currency)} immediately after the purchase.`;
+    next_step = "Consider rebuilding your available balance over the next month before any further large purchases.";
+  } else if(monthly_surplus > 0 && (monthly_surplus * 6) >= data.price){
+    recommendation = "WAIT";
+    payment_strategy = "SAVE_AND_BUY";
+    months_to_wait = Math.max(1, Math.ceil(data.price / Math.max(1, estimated_monthly_saving_capacity)));
+    months_to_wait = Math.min(months_to_wait, 6);
+    confidence = 82;
+    risk_level = "MEDIUM";
+    const savingTarget = Math.ceil((data.price / months_to_wait) / 100) * 100;
+    reasoning = `Buying today would significantly reduce your available balance. Your monthly surplus of ${formatMoney(monthly_surplus, data.currency)} means you can comfortably save toward this instead.`;
+    financial_impact = `Waiting protects your current cushion and avoids putting immediate pressure on your monthly budget.`;
+    next_step = `Save ${formatMoney(savingTarget, data.currency)} per month for the next ${months_to_wait} month(s), then revisit this purchase.`;
+    data._monthlySavingTarget = savingTarget;
+  } else if(monthly_surplus > 0 && budget_utilization < 1){
+    recommendation = "WAIT";
+    payment_strategy = "USE_INSTALLMENTS";
+    months_to_wait = 1;
+    confidence = 70;
+    risk_level = "MEDIUM";
+    reasoning = `Your budget can likely absorb this cost if spread out, but your current balance and surplus don't fully support paying upfront right now.`;
+    financial_impact = `Spreading payments would avoid a sharp hit to your available balance while your income continues to cover fixed costs.`;
+    next_step = `Look into an installment plan and re-check your balance in about a month.`;
+  } else {
+    recommendation = "DO_NOT_PROCEED";
+    payment_strategy = "WAIT";
+    confidence = 80;
+    risk_level = "HIGH";
+    reasoning = `Your monthly expenses and commitments already use most or all of your income, and this purchase would leave very little financial safety margin.`;
+    financial_impact = `Proceeding now would likely push your monthly budget into deficit and reduce your emergency savings buffer.`;
+    next_step = `Focus on reducing monthly expenses or increasing income before reconsidering this purchase.`;
+  }
+
+  const purchaseDate = addMonths(new Date(), months_to_wait);
+
+  return {
+    recommendation,
+    confidence,
+    risk_level,
+    reasoning,
+    financial_impact,
+    recommended_months_to_wait: months_to_wait,
+    recommended_purchase_date: months_to_wait > 0 ? formatISODate(purchaseDate) : formatISODate(new Date()),
+    payment_strategy,
+    monthly_saving_target: data._monthlySavingTarget || 0,
+    next_step,
+  };
+}
+*/
+
+/* ============================================================
+  VERIFIER — validates the backend response before display.
+   Falls back to a safe, conservative response if anything fails.
+============================================================ */
+function verifyAiResponse(raw, facts){
+  // Soft validation — logs warnings but never silently replaces a working result.
+  // All field normalization is handled by normalizeBackendDecision() upstream.
+  const allowedRec = ["BUY_NOW","WAIT","DO_NOT_PROCEED"];
+  const allowedRisk = ["LOW","MEDIUM","HIGH","UNKNOWN"];
+  const allowedStrategy = ["PAY_IN_FULL","PAY_PARTIALLY","SAVE_AND_BUY","USE_INSTALLMENTS","WAIT"];
+
+  const problems = [];
+  if(!raw || typeof raw !== "object") problems.push("missing response");
+  if(!allowedRec.includes(raw.recommendation)) problems.push(`invalid recommendation: ${raw.recommendation}`);
+  if(typeof raw.confidence !== "number" || raw.confidence < 0 || raw.confidence > 100) problems.push(`invalid confidence: ${raw.confidence}`);
+  if(!allowedRisk.includes(raw.risk_level)) problems.push(`invalid risk_level: ${raw.risk_level}`);
+  if(!raw.reasoning || typeof raw.reasoning !== "string") problems.push("missing reasoning");
+  if(!allowedStrategy.includes(raw.payment_strategy)) problems.push(`invalid payment_strategy: ${raw.payment_strategy}`);
+  if(!Number.isInteger(raw.recommended_months_to_wait) || raw.recommended_months_to_wait < 0) problems.push(`invalid months_to_wait: ${raw.recommended_months_to_wait}`);
+  if(typeof raw.monthly_saving_target !== "number" || raw.monthly_saving_target < 0) problems.push(`invalid monthly_saving_target: ${raw.monthly_saving_target}`);
+  if(raw.recommended_purchase_date && String(raw.recommended_purchase_date).trim() && isNaN(Date.parse(raw.recommended_purchase_date))) problems.push(`invalid purchase date: ${raw.recommended_purchase_date}`);
+
+  if(problems.length){
+    console.warn("[Verify] Validation warnings (result still shown):", problems);
+  }
+  // Always return raw — normalizeBackendDecision has already sanitized everything
+  return raw;
+}
+
+function safeFallbackResult(data, note){
+  const today = formatISODate(new Date());
+  return {
+    recommendation: "WAIT",
+    confidence: 50,
+    risk_level: "UNKNOWN",
+    reasoning: note || "Not enough verified information was available to make a confident recommendation.",
+    financial_impact: "Unable to fully assess financial impact from the data provided.",
+    recommended_months_to_wait: 1,
+    recommended_purchase_date: today,
+    payment_strategy: "WAIT",
+    monthly_saving_target: 0,
+    next_step: "Double-check your financial details and try the analysis again.",
+    mode: "MATH",
+  };
+}
+
+// ---------- helpers ----------
+function formatMoney(value, currency){
+  const n = Number(value) || 0;
+  return `${currency || "₹"}${n.toLocaleString(undefined,{maximumFractionDigits:0})}`;
+}
+function addMonths(date, months){
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + months);
+  return d;
+}
+function formatISODate(date){
+  return date.toISOString().slice(0,10);
+}
+function formatDisplayDate(iso){
+  if(!iso) return "—";
+  const d = new Date(iso);
+  if(isNaN(d)) return iso;
+  return d.toLocaleDateString(undefined,{day:"numeric",month:"long",year:"numeric"});
+}
+function toneForRecommendation(rec){
+  if(rec === "BUY_NOW") return "success";
+  if(rec === "DO_NOT_PROCEED") return "danger";
+  return "warning";
+}
+function recLabel(rec){
+  return {BUY_NOW:"BUY NOW", WAIT:"WAIT", DO_NOT_PROCEED:"DON'T BUY"}[rec] || rec;
+}
+function recImage(rec){
+  return {BUY_NOW:"models/buy.png", WAIT:"models/wait.png", DO_NOT_PROCEED:"models/dont-buy.png"}[rec] || "models/wait.png";
+}
+function strategyLabel(s){
+  return (s || "").replaceAll("_"," ");
+}
+
+/* ============================================================
+   RENDER: decision + analytics
+============================================================ */
+function renderDecision(result){
+  if(!result || typeof result !== "object"){
+    throw new Error("renderDecision: invalid result object.");
+  }
+  console.log("[Render] Rendering result:", result);
+
+  const wordEl = document.getElementById("decisionWord");
+  if(!wordEl) throw new Error("renderDecision: #decisionWord element not found.");
+
+  const tone = toneForRecommendation(result.recommendation);
+
+  const badgeWrap = document.getElementById("modeBadgeWrap");
+  badgeWrap.innerHTML = `<span class="ai-badge">MATH MODE — calculated in your browser</span>`;
+
+  wordEl.textContent = recLabel(result.recommendation);
+  wordEl.className = `decision__word tone-${tone}`;
+
+  const imgEl = document.getElementById("decisionImg");
+  if(imgEl){
+    imgEl.src = recImage(result.recommendation);
+    imgEl.alt = recLabel(result.recommendation);
+  }
+
+  document.getElementById("decisionReason").textContent = result.reasoning;
+  document.getElementById("statRisk").textContent = result.risk_level;
+  document.getElementById("statConfidence").textContent = `${result.confidence}%`;
+  document.getElementById("statMonths").textContent = result.recommended_months_to_wait > 0
+    ? `~${result.recommended_months_to_wait} month(s)`
+    : "Now";
+  document.getElementById("statDate").textContent = formatDisplayDate(result.recommended_purchase_date);
+  document.getElementById("statStrategy").textContent = strategyLabel(result.payment_strategy);
+
+  // ---- financial overview ----
+  document.getElementById("ovBalance").textContent = formatMoney(state.available_balance, state.currency);
+  document.getElementById("ovIncome").textContent = formatMoney(state.monthly_income, state.currency);
+  document.getElementById("ovExpenses").textContent = formatMoney(state.monthly_expenses, state.currency);
+  document.getElementById("ovSavings").textContent = formatMoney(state.savings, state.currency);
+
+  const facts = result.facts || computeFinancialFacts(state);
+  // Guard against NaN if a calculated fact is unavailable.
+  const safeFacts = {
+    monthly_surplus: Number(facts.monthly_surplus) || 0,
+    budget_utilization: Number(facts.budget_utilization) || 0,
+    purchase_to_balance_ratio: Number(facts.purchase_to_balance_ratio) || 0,
+    savings_months_of_expenses: Number(facts.savings_months_of_expenses) || 0,
+    estimated_monthly_saving_capacity: Number(facts.estimated_monthly_saving_capacity) || 0,
+  };
+  document.getElementById("ovRemaining").textContent = formatMoney(safeFacts.monthly_surplus, state.currency);
+
+  const utilPct = Math.min(100, Math.max(0, safeFacts.budget_utilization * 100));
+  const utilPctStr = isNaN(utilPct) ? "0" : utilPct.toFixed(0);
+  document.getElementById("budgetBar").style.width = `${utilPctStr}%`;
+  document.getElementById("budgetPct").textContent =
+    `Income ${formatMoney(state.monthly_income, state.currency)} · Expenses ${formatMoney(state.monthly_expenses, state.currency)} · Commitments ${formatMoney(state.monthly_commitments, state.currency)} · Remaining ${formatMoney(safeFacts.monthly_surplus, state.currency)} (${utilPctStr}% utilized)`;
+
+  renderSpendChart(state.monthly_income, state.monthly_expenses, state.monthly_commitments);
+
+  // ---- financial health ----
+  const {label: healthLabel, tone: healthTone, note: healthNote} = financialHealth(safeFacts, isNaN(utilPct) ? 0 : utilPct);
+  const healthBadge = document.getElementById("healthBadge");
+  healthBadge.textContent = healthLabel;
+  healthBadge.className = `health-badge tone-${healthTone}`;
+  document.getElementById("healthNote").textContent = healthNote;
+
+  // ---- AI recommendation block ----
+  document.getElementById("aiReasoning").textContent = result.reasoning;
+  document.getElementById("aiImpact").textContent = result.financial_impact;
+  document.getElementById("aiNextStep").textContent = result.next_step;
+
+  // ---- buying plan timeline ----
+  renderBuyingPlan(result);
+
+  document.getElementById("disclosureNote").textContent =
+    "This recommendation uses only the numbers you entered and deterministic financial rules. It is not financial advice.";
+
+  // reveal analytics on "view full analysis" or on scroll
+  const analytics = document.getElementById("analytics");
+  analytics.classList.remove("is-visible");
+  const observer = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{ if(e.isIntersecting) analytics.classList.add("is-visible"); });
+  }, {threshold:0.1});
+  observer.observe(analytics);
+
+  document.getElementById("viewAnalysisBtn").onclick = ()=>{
+    analytics.classList.add("is-visible");
+    analytics.scrollIntoView({behavior:"smooth", block:"start"});
+  };
+}
+
+function showResultPage(result, source){
+  try{
+    renderDecision(result);
+  }catch(renderErr){
+    console.error(`[${source}] Result rendering failed:`, renderErr);
+  }
+  console.log(`[${source}] MOVING TO DECISION SCREEN`);
+  goToScreen("screen-decision");
+}
+
+function financialHealth(facts, utilPct){
+  const months = facts.savings_months_of_expenses;
+  if(utilPct < 60 && months >= 3){
+    return {label:"EXCELLENT", tone:"success", note:"Your income comfortably covers your expenses with a strong savings buffer behind it."};
+  }
+  if(utilPct < 80 && months >= 1.5){
+    return {label:"GOOD", tone:"success", note:"Your monthly income currently covers your expenses with a healthy remaining budget."};
+  }
+  if(utilPct < 95){
+    return {label:"MODERATE", tone:"warning", note:"Your budget is fairly tight — large purchases deserve a closer look before proceeding."};
+  }
+  return {label:"AT RISK", tone:"danger", note:"Your expenses and commitments are consuming nearly all or more of your income right now."};
+}
+
+function renderSpendChart(income, expenses, commitments){
+  const max = Math.max(income, expenses, commitments, 1);
+  const pts = [income, expenses, commitments];
+  const width = 320, height = 130, baseline = 105;
+  const stepX = width / (pts.length + 1);
+  const coords = pts.map((v,i)=>{
+    const x = stepX*(i+1);
+    const y = baseline - (v/max)*85;
+    return `${x},${y}`;
+  });
+  const line = coords.join(" ");
+  const fill = `0,${baseline} ${line} ${width},${baseline}`;
+  document.getElementById("spendLine").setAttribute("points", line);
+  document.getElementById("spendFill").setAttribute("points", fill);
+}
+
+function renderBuyingPlan(result){
+  const el = document.getElementById("buyingPlan");
+  el.innerHTML = "";
+  const months = result.recommended_months_to_wait || 0;
+
+  const items = [];
+  items.push({label:"TODAY", text: months > 0 ? "Keep your current balance and avoid the purchase for now." : "You're clear to proceed with the purchase today."});
+
+  for(let m=1; m<=months; m++){
+    const target = result.monthly_saving_target || 0;
+    items.push({
+      label:`MONTH ${m}`,
+      text: target > 0
+        ? `Save ${formatMoney(target, state.currency)}${result.payment_strategy === "USE_INSTALLMENTS" ? " toward your installment plan." : "."}`
+        : "Continue monitoring your budget."
+    });
+  }
+
+  items.push({
+    label:"RECOMMENDED PURCHASE DATE",
+    text: formatDisplayDate(result.recommended_purchase_date),
+    isFinal:true,
+  });
+
+  items.forEach(item=>{
+    const div = document.createElement("div");
+    div.className = `timeline__item${item.isFinal ? " is-final" : ""}`;
+    div.innerHTML = `<div class="timeline__label">${item.label}</div><div class="timeline__text">${item.text}</div>`;
+    el.appendChild(div);
+  });
+}
+
+/* ============================================================
+  HISTORY (stored locally in the browser)
+============================================================ */
+function normalizeHistoryRow(row){
+  // Translate CSV decision values (from both official and personal paths) to frontend filter enums
+  const decisionMap = {
+    // official dataset internal values
+    "full_payment": "BUY_NOW",
+    "partial_payment": "BUY_NOW",
+    "installments": "WAIT",
+    "wait": "WAIT",
+    "not_recommended": "DO_NOT_PROCEED",
+    // personal AI path values (already frontend-ish but need mapping)
+    "PAY_IN_FULL": "BUY_NOW",
+    "PAY_PARTIALLY": "BUY_NOW",
+    "USE_INSTALLMENTS": "WAIT",
+    "WAIT": "WAIT",
+    "DO_NOT_PROCEED": "DO_NOT_PROCEED",
+    // already-normalized values pass through
+    "BUY_NOW": "BUY_NOW",
+  };
+  const rawDecision = row.decision || "not_recommended";
+  return {
+    ...row,
+    id: row.request_id || "",
+    product_name: row.request_summary || row.request_id || "Completed analysis",
+    currency: row.currency || "₹",
+    price: Number(row.amount || 0),
+    recommendation: decisionMap[rawDecision] || "WAIT",
+    safe_amount: Number(row.safe_amount || 0),
+    created_at: row.created_at || "",
+  };
+}
+
+function saveHistory(result){
+  const entry = normalizeHistoryRow({
+    request_id: state.request_id || `local_${Date.now()}`,
+    request_summary: state.product_name || "Completed analysis",
+    currency: state.currency,
+    amount: state.price,
+    decision: result.recommendation,
+    risk_level: result.risk_level,
+    safe_amount: Math.max(0, state.available_balance - state.price),
+    explanation: result.reasoning,
+    source: "Browser math",
+    created_at: new Date().toISOString(),
+  });
+  history = [entry, ...history.filter((item)=>item.id !== entry.id)].slice(0, 50);
+  localStorage.setItem("buy-or-wait-history", JSON.stringify(history));
+}
+
+function loadLocalHistory(){
+  try{
+    const stored = JSON.parse(localStorage.getItem("buy-or-wait-history") || "[]");
+    history = Array.isArray(stored) ? stored.map(normalizeHistoryRow) : [];
+  }catch(error){
+    history = [];
+    console.warn("Could not read local history.", error);
+  }
+  renderHistoryList();
+}
+
+function renderHistoryList(){
+  const list = document.getElementById("historyList");
+  const search = (document.getElementById("historySearch").value || "").toLowerCase();
+  const filter = document.getElementById("historyFilter").value;
+  const sort = document.getElementById("historySort").value;
+
+  let rows = history.filter(h=>{
+    const matchesSearch = !search || h.product_name.toLowerCase().includes(search);
+    const matchesFilter = filter === "ALL" || h.recommendation === filter;
+    return matchesSearch && matchesFilter;
+  });
+
+  rows.sort((a,b)=> sort === "newest"
+    ? new Date(b.created_at) - new Date(a.created_at)
+    : new Date(a.created_at) - new Date(b.created_at));
+
+  if(!rows.length){
+    list.innerHTML = `<div class="history-empty">No analyses yet. Analyze a request to see your decisions here.</div>`;
+    return;
+  }
+
+  list.innerHTML = rows.map(h=>{
+    const tone = toneForRecommendation(h.recommendation);
+    return `
+      <div class="history-row" data-id="${h.id}">
+        <div>
+          <div class="history-row__product">${escapeHtml(h.product_name)}</div>
+          <div class="history-row__sub">${new Date(h.created_at).toLocaleString()}</div>
+        </div>
+        <div>${formatMoney(h.price, h.currency)}</div>
+        <div><span class="tag tone-${tone}">${escapeHtml(h.recommendation.replaceAll("_", " "))}</span></div>
+        <div class="history-row__risk">${escapeHtml(h.risk_level || "Not provided")}</div>
+        <div class="history-row__date">Safe: ${formatMoney(h.safe_amount, h.currency)}</div>
+      </div>
+    `;
+  }).join("");
+
+  list.querySelectorAll(".history-row").forEach(row=>{
+    row.addEventListener("click", ()=>openHistoryModal(row.dataset.id));
+  });
+}
+
+document.getElementById("historySearch").addEventListener("input", renderHistoryList);
+document.getElementById("historyFilter").addEventListener("change", renderHistoryList);
+document.getElementById("historySort").addEventListener("change", renderHistoryList);
+
+function openHistoryModal(id){
+  const entry = history.find(h=>h.id === id);
+  if(!entry) return;
+  currentModalId = id;
+
+  const tone = toneForRecommendation(entry.recommendation);
+  const modal = document.getElementById("modalBody");
+  modal.innerHTML = `
+    <div class="modal__header">
+      <h3 class="modal__title">${escapeHtml(entry.product_name)}</h3>
+      <button class="modal__close-btn" id="modalCloseBtn">✕</button>
+    </div>
+    <span class="tag tone-${tone}">${recLabel(entry.recommendation)}</span>
+    <div class="modal__row"><span>Requested amount</span><span>${formatMoney(entry.price, entry.currency)}</span></div>
+    <div class="modal__row"><span>Safe amount</span><span>${formatMoney(entry.safe_amount, entry.currency)}</span></div>
+    <div class="modal__row"><span>Decision</span><span>${escapeHtml(entry.recommendation.replaceAll("_", " "))}</span></div>
+    <div class="modal__row"><span>Risk level</span><span>${escapeHtml(entry.risk_level || "Not provided")}</span></div>
+    <div class="modal__row"><span>Completed</span><span>${escapeHtml(entry.created_at || "Date unavailable")}</span></div>
+    <div class="modal__block">
+      <h4>Reasoning</h4>
+      <p>${escapeHtml(entry.explanation || "No explanation was saved.")}</p>
+    </div>
+    <div class="modal__block">
+      <h4>Source</h4>
+      <p>${escapeHtml(entry.source || "Browser math")}</p>
+    </div>
+    <div class="modal__block">
+      <h4>Request ID</h4>
+      <p>${escapeHtml(entry.request_id || "Unavailable")}</p>
+    </div>
+  `;
+  document.getElementById("modalOverlay").classList.add("is-open");
+  document.getElementById("modalCloseBtn").addEventListener("click", closeModal);
+}
+
+function closeModal(){
+  document.getElementById("modalOverlay").classList.remove("is-open");
+  currentModalId = null;
+}
+document.getElementById("modalOverlay").addEventListener("click", (e)=>{
+  if(e.target.id === "modalOverlay") closeModal();
+});
+document.addEventListener("keydown",(e)=>{ if(e.key === "Escape") closeModal(); });
+
+function escapeHtml(str){
+  return String(str).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+}
+
+// ---------- init ----------
+updateBackButton();
+loadLocalHistory();
+</script>
+</body>
+</html>
